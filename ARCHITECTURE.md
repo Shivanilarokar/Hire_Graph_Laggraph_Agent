@@ -1,7 +1,7 @@
 # HireGraph — Architecture
 
-**HireGraph is a real, production-shaped LangGraph application that exercises every
-concept from Class 2 in one coherent system:** state design, routing,
+**HireGraph is a real, production-shaped LangGraph application that brings together
+every core LangGraph pattern in one coherent system:** state design, routing,
 parallelization, the orchestrator-and-worker pattern, the evaluator-and-optimizer
 loop, agents with tools, retries, human-in-the-loop, and the saga pattern.
 
@@ -17,14 +17,14 @@ end to end on a keyless clone thanks to deterministic mocks.
 
 This document explains it top to bottom: the high-level shape, the state object,
 every node and edge, the two parallel patterns, the reliability machinery, and how
-each Class 2 concept is realized in code. The Python source and tests are
-authoritative; this doc tracks them.
+each pattern is realized in code. The Python source and tests are authoritative;
+this doc tracks them.
 
 ---
 
 ## Table of contents
 
-1. [Every Class 2 concept → where it lives](#1-every-class-2-concept--where-it-lives)
+1. [Every pattern → where it lives](#1-every-pattern--where-it-lives)
 2. [The shape of the graph](#2-the-shape-of-the-graph)
 3. [Repository layout](#3-repository-layout)
 4. [State design](#4-state-design)
@@ -41,18 +41,18 @@ authoritative; this doc tracks them.
 15. [Observability](#15-observability)
 16. [Scoring math](#16-scoring-math)
 17. [A full trace (Eitan)](#17-a-full-trace-eitan)
-18. [Runtime surfaces (CLI, API, UI)](#18-runtime-surfaces-cli-api-ui)
+18. [Runtime surfaces (CLI and API)](#18-runtime-surfaces-cli-and-api)
 19. [Testing](#19-testing)
 20. [Notes and limitations](#20-notes-and-limitations)
 
 ---
 
-## 1. Every Class 2 concept → where it lives
+## 1. Every pattern → where it lives
 
-This is the heart of the design. Each pattern below is implemented as a real,
-non-contrived part of the pipeline — point at the node, the edge, or the line.
+This is the heart of the design. Each pattern below is a real, non-contrived part
+of the pipeline — point at the node, the edge, or the line.
 
-| Class 2 concept | Where it lives in HireGraph |
+| Pattern | Where it lives in HireGraph |
 |---|---|
 | **State design** (TypedDict, raw data, reducers) | `state.py` → `HireGraphState`; `completed_scores`, `audit_trail`, `messages` use reducers |
 | **Routing** | `route_recommendation` (the `recommendation?` diamond) branches advance / borderline / reject; `classify_seniority` sets the seniority that picks the bar |
@@ -74,8 +74,8 @@ non-contrived part of the pipeline — point at the node, the edge, or the line.
 ## 2. The shape of the graph
 
 A **linear intake spine**, a **fan-out / fan-in parallel block**, and a
-**decide-and-act tail**. The committed image (`graph_out/graph.png`, generated from
-`graph.py`) mirrors `docs/architecture/hiregraph_architecture.drawio`.
+**decide-and-act tail**. The committed image (`graph_out/graph.png`) is generated
+from `graph.py` on every run.
 
 ```
 START
@@ -121,7 +121,8 @@ src/hiregraph/
   config.py         Typed settings from environment / .env
   logging_config.py Central logging setup
   graph.py          build_graph(), compile_graph(), render_graph_png()
-  cli.py            The demo runner + scoreboard
+  cli.py            The demo runner + scoreboard (main.py / hiregraph)
+  resume_cli.py     The one-résumé interactive runner (hiregraph-resume)
   nodes/
     intake.py       ingest_resume_and_jd (+ the parse/normalize/extract chain)
     classify.py     classify_seniority
@@ -130,9 +131,7 @@ src/hiregraph/
     decision.py     aggregate_scores, route_recommendation, draft/critic/review,
                     draft_rejection, log_rejection, send_email_update_ats,
                     compensate, finalize
-api/server.py       FastAPI backend for the UI
-ui/                 React + Vite + Tailwind front-end
-scripts/test_resume.py  Run a single résumé and print the verdict
+api/server.py       FastAPI backend (run / resume / graph endpoints)
 tests/              state / node / end-to-end tests
 graph_out/          Committed graph.png + graph.mmd
 sample_data/        Résumés (.md, .pdf) and JDs
@@ -376,10 +375,11 @@ Recoverable failures raise **typed exceptions** (`TavilyError`, `GitHubError`,
 those. A partially configured `.env` uses real APIs where it can and mocks the
 rest, with no code change. The **LLM** mirrors this in `llm.py`: `get_llm()`
 returns a real `ChatOpenAI` when keyed, or a `MockChatModel` producing
-deterministic structured outputs (tuned to reproduce `expected_outcomes.md`) with
-zero network calls.
+deterministic structured outputs (tuned to stable, documented sample verdicts)
+with zero network calls.
 
 ---
+
 
 ## 14. Configuration
 
@@ -452,26 +452,28 @@ borderline / **pauses**; Mira → senior(frontend) / reject / no pause.
 5. `aggregate_scores` blends them → `final_score ≈ 56`; mid bar `(70, 45)` →
    `45 ≤ 56 < 70` → **borderline**.
 6. `route_recommendation` → `human_review`.
-7. `human_review` calls `interrupt(...)`; the run **pauses**. The CLI/UI resumes
-   with `Command(resume={"approved": True})`.
+7. `human_review` calls `interrupt(...)`; the run **pauses**. The caller (CLI or
+   API) resumes with `Command(resume={"approved": True})`.
 8. Approved → `draft_email` → `critic_loop` (revise up to 3) → `send_email_update_ats`.
 9. Email sent + ATS written → `finalize` (`terminal_status="completed"`) → `END`.
 
 ---
 
-## 18. Runtime surfaces (CLI, API, UI)
+## 18. Runtime surfaces (CLI and API)
 
 The same compiled graph is exposed three ways:
 
-- **`main.py` / `cli.py`** — compiles the graph, writes `graph_out/graph.png`, runs
-  the canned scenarios (3 `.md` + 1 `.pdf`), auto-approves at the borderline
-  interrupt, and prints a per-node trace plus a scoreboard.
-- **`scripts/test_resume.py`** — runs one résumé (`.md` or `.pdf`) against a JD and
-  prints the verdict; in real mode the research tool calls show as
+- **`main.py` / `cli.py`** (`hiregraph`) — compiles the graph, writes
+  `graph_out/graph.png`, runs the canned scenarios (3 `.md` + 1 `.pdf`),
+  auto-approves at the borderline interrupt, and prints a per-node trace plus a
+  scoreboard.
+- **`hiregraph-resume`** (`src/hiregraph/resume_cli.py`) — runs one résumé (`.md`
+  or `.pdf`) against a JD and pauses in the terminal for a real human decision on a
+  borderline candidate; in real mode the research tool calls show as
   `tavily search: …` / `github lookup: …` log lines.
 - **`api/server.py`** — FastAPI: `POST /api/run` starts a thread, `POST
   /api/resume/{thread_id}` resumes a paused borderline run, `GET /api/graph.png`
-  serves the diagram; the React/Vite/Tailwind UI in `ui/` drives it.
+  serves the diagram. (Wildcard CORS, no auth — a demo backend.)
 
 ---
 
@@ -498,15 +500,11 @@ the LLM and services mocked (`conftest.py` forces `HIREGRAPH_USE_MOCKS=true`):
   hook). No scenario sets it, so the rollback branch — correctly wired — isn't hit
   in a normal run. Set `force_ats_failure=True` on the input to demo it.
 - **`scorecard_summary` is write-only** — set in `aggregate_scores` for
-  readability, not yet read anywhere (a candidate for the UI or removal).
+  readability, not yet read anywhere (a candidate for the API response or removal).
 - **The recoverable loopback lives in the research agent.** The intake chain is
   linear; the "tool error becomes data the agent reasons about" behavior comes
   from `handle_tool_errors=True`.
-- **Determinism.** With mocks on, outputs are fully deterministic and reproduce
-  `expected_outcomes.md`; with real models the exact scores vary but the
-  advance / borderline / reject verdicts are stable.
-
----
+- ---
 
 *The Python source and tests are authoritative. This document describes the system
 as built; when in doubt, read the code in `src/hiregraph/`.*

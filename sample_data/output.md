@@ -15,7 +15,3 @@ the borderline candidate that triggers the `interrupt()` path, Mira as the
 frontend skill mismatch that exercises rejection and rejection-email delivery,
 and Shivani as the PDF intake candidate that also triggers human review.
 
-If you only show one demo, show **Eitan against the senior backend JD**. That run
-exercises classification, parallel scoring, the orchestrator and worker over
-JD-required skills, the critic loop on the email, and the human review
-interrupt. It is the most teachable scenario.

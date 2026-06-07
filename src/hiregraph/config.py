@@ -1,8 +1,5 @@
 """Central configuration. Every external knob comes from the environment.
 
-Nothing here is a prompt and nothing here goes into graph state - this is wiring
-only. See ``.env.example`` for the full list of variables the code reads.
-
 Provider: **OpenAI only** (``gpt-4o-mini`` by default).
 
 Mock semantics: set ``HIREGRAPH_USE_MOCKS=true`` to run with no third-party keys.

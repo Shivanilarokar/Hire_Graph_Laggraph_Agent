@@ -32,9 +32,6 @@ ui/.vite/
 .azure/
 *.azurelogin
 
-# Reference material (external repos, not part of this submission)
-reference/
-
 # OS / editors
 .DS_Store
 Thumbs.db

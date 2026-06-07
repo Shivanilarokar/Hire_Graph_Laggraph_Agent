@@ -79,12 +79,6 @@ borderline candidate:
 uv run hiregraph-resume "sample_data/resumes/resume_eitan.md" "sample_data/jds/jd_senior_backend.md"
 ```
 
-The equivalent compatibility wrapper is:
-
-```powershell
-uv run python scripts/test_resume.py "sample_data/resumes/resume_eitan.md" "sample_data/jds/jd_senior_backend.md"
-```
-
 Other sample commands:
 
 ```powershell
@@ -132,7 +126,7 @@ START
   -> END
 ```
 
-Where each Class 2 pattern lives:
+Where each pattern lives:
 
 | Pattern | Where in the code |
 | --- | --- |
@@ -198,9 +192,10 @@ expose it directly to an untrusted network.
 
 ```powershell
 uv run pytest -q
-uv run ruff check src api scripts tests main.py
+uv run ruff check src api tests main.py
 ```
 
-Deterministic expectations are in
-[`sample_data/expected_outcomes.md`](sample_data/expected_outcomes.md). Captured
-real-service outcomes are in [`sample_data/output.md`](sample_data/output.md).
+Captured real-service outcomes are in
+[`sample_data/output.md`](sample_data/output.md). Expected verdicts vs the senior
+backend JD: Priya senior / advance, Eitan mid / borderline (pauses), Mira senior /
+reject.
