@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv
+venv/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Test / lint cache
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node / Vite
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
+# Azure / azd
+.azure/
+*.azurelogin
+
+# Reference material (external repos, not part of this submission)
+reference/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+

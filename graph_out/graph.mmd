@@ -1,0 +1,54 @@
+graph TD
+    START([START]):::start --> ingest["ingest_resume_and_jd<br/>data: parse-normalize-extract chain"]:::data
+    ingest --> classify["classify_seniority<br/>LLM, with_structured_output"]:::llm
+    classify --> plan["plan_required_skills<br/>LLM, with_structured_output"]:::llm
+
+    subgraph OW["Orchestrator and worker"]
+      sw["skill_worker xN<br/>skill #1, #2, #3 ..."]:::llm
+    end
+    subgraph PAR["Parallelization with reducer"]
+      exps["experience_scorer<br/>LLM"]:::llm
+      edus["education_scorer<br/>LLM"]:::llm
+      sigs["signal_scorer<br/>LLM"]:::llm
+      research["research_agent<br/>agent + tools"]:::agent
+    end
+    plan == assign_skill_workers - one Send per skill ==> sw
+    plan -.-> exps
+    plan -.-> edus
+    plan -.-> sigs
+    plan -.-> research
+    research -. tavily_search / github_lookup .-> research
+
+    sw --> agg["aggregate_scores<br/>reducer: Annotated list, operator.add"]:::data
+    exps --> agg
+    edus --> agg
+    sigs --> agg
+    research --> agg
+
+    agg --> rec{"recommendation?"}:::decision
+    rec -- advance --> draft["draft_email<br/>LLM"]:::llm
+    rec -- borderline --> review["human_review<br/>LangGraph interrupt + checkpoint"]:::human
+    rec -- reject --> rej["draft_rejection<br/>LLM"]:::llm
+    review -. paused thread .-> person["Recruiter decision<br/>terminal A/R or API"]:::human
+    person -- Command resume: approved --> draft
+    person -- Command resume: rejected --> rej
+    draft --> critic["critic_loop<br/>evaluator + optimizer, max 3"]:::llm
+    critic -. not yet good enough .-> draft
+    critic -- accepted --> send["send_email + update_ats<br/>handled failures route to compensation"]:::action
+    rej -- rejection email --> send
+
+    subgraph SAGA["Saga / compensation"]
+      send -. handled delivery failure .-> comp["compensate<br/>record failed side effects"]:::action
+    end
+    send -- sent --> fin["finalize<br/>write audit trail"]:::data
+    comp -- compensated --> fin
+    fin --> ENDN([END]):::terminal
+
+    classDef start fill:#d5e8d4,stroke:#2f5b22,color:#000
+    classDef terminal fill:#f8cecc,stroke:#6b1d1d,color:#000
+    classDef data fill:#e1d5e7,stroke:#3f2b6c,color:#000
+    classDef llm fill:#fff2cc,stroke:#9a7d0a,color:#000
+    classDef action fill:#ffe6cc,stroke:#a0522d,color:#000
+    classDef human fill:#f5d0d0,stroke:#8b0000,color:#000
+    classDef agent fill:#cce5ff,stroke:#1a5fb4,color:#000
+    classDef decision fill:#fff2cc,stroke:#9a7d0a,color:#000
